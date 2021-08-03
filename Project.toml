@@ -1,0 +1,10 @@
+[deps]
+Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
+FilePathsBase = "48062228-2e41-5def-b9a4-89aafe57970f"
+Gumbo = "708ec375-b3d6-5a57-a7ce-8257bf98657a"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+ResumableFunctions = "c5292f4c-5179-55e1-98c5-05642aab7184"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
