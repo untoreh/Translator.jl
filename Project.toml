@@ -1,4 +1,5 @@
 name = "Translator"
+uuid = "7b12ad4c-248e-49d0-9ce0-1140dfa8bd03"
 authors = ["untoreh <contact@unto.re>"]
 version = "0.1.0"
 
