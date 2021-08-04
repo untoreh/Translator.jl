@@ -18,7 +18,7 @@ if length(translated_text) === 0
         catch end
         @warn "loaded translations from $cache_path_bak"
     else
-        translated_text = IdDict{UInt64, String}()
+        @assert length(translated_text) === 0
         @warn "no previous translations found at $cache_path"
     end
 end

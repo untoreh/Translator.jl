@@ -1,19 +1,17 @@
-include("common.jl")
-
 mutable struct GoogleTrans
     mod::OptPy
     tr::OptPy
 end
 
 srv_sym = :googletrans
-sym_val = Val{srv_sym}
+srv_val = Val{srv_sym}
 
 
 if isunset(srv_sym)
     const googletrans =  GoogleTrans(nothing, nothing)
 end
 
-function init(::sym_val)
+function init(::srv_val)
 	let f() = begin
         googletrans.mod = pyimport("googletrans")
         googletrans.tr = googletrans.mod.Translator(
@@ -44,7 +42,7 @@ function init_translator(SLang, TLangs, ::srv_val)
     end
 end
 
-function translate(str::StrOrVec; src=SLang, target::String, TR::Translator, srv::srv_val)
+function translate(str::StrOrVec, ::srv_val; src=SLang, target::String, TR::Translator)
     let t_fn(x) = TR[Pair(SLang, target)](x, src = src, dest = target).text
         @__MODULE__()._translate(str, t_fn)
     end

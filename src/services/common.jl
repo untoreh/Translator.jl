@@ -1,9 +1,6 @@
 using PyCall
 using Conda
 
-include("../misc/types.jl")
-include("../misc/defs.jl")
-
 const INITIALIZED_SERVICES = Dict{Symbol, Bool}()
 
 function isunset(sym::Symbol, field::Union{Nothing, Symbol}=nothing)

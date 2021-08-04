@@ -1,3 +1,7 @@
+name = "Translator"
+authors = ["untoreh <contact@unto.re>"]
+version = "0.1.0"
+
 [deps]
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
 EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"

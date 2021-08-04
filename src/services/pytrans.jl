@@ -1,5 +1,3 @@
-include("common.jl")
-
 srv_sym = :pytrans
 srv_val = Val{srv_sym}
 provider = :mymemory
@@ -37,7 +35,7 @@ function init_translator(SLang, TLangs, ::srv_val)
     tr
 end
 
-function translate(str::String; src::String=SLang, target::String, TR::Translator, srv::srv_val)
+function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::Translator)
     @__MODULE__()._translate(str, TR[Pair(src, target)])
 end
 

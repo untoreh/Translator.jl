@@ -1,5 +1,3 @@
-include("common.jl")
-
 mutable struct PyTranslators
     mod::OptPy
     apis::Tuple
@@ -39,7 +37,7 @@ function init_translator(SLang, TLangs, ::srv_val)
     tr
 end
 
-function translate(str::StrOrVec; src=SLang, target::String,  TR::Translator, srv::srv_val)
+function translate(str::StrOrVec, ::srv_val; src=SLang, target::String,  TR::Translator)
     let t_fn(x) = TR[Pair(src, target)](x, to_language=target)
         @__MODULE__()._translate(str, t_fn)
     end

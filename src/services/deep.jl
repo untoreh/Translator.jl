@@ -1,5 +1,3 @@
-include("common.jl")
-
 mutable struct Deep
     mod::OptPy
     tr::Dict{Symbol, OptPy}
@@ -46,7 +44,7 @@ function init_translator(SLang, TLangs, ::srv_val)
     tr
 end
 
-function translate(str::String; src::String=SLang, target::String, TR::Translator, srv::srv_val)
+function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::Translator)
     # @show "translating string $str"
     @__MODULE__()._translate(str, TR[Pair(src, target)].translate)
 end
