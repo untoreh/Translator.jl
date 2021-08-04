@@ -37,14 +37,14 @@ end
 
 function init_translator(SLang, TLangs, ::srv_val)
 	init(srv_sym)
-    tr = Translator()
+    tr = TranslatorDict()
     for (_, code) in TLangs
         tr[Pair(Slang, code)] = deep.mod[deep.provider](source=SLang, target=code)
     end
     tr
 end
 
-function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::Translator)
+function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::TranslatorDict)
     # @show "translating string $str"
     @__MODULE__()._translate(str, TR[Pair(src, target)].translate)
 end

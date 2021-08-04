@@ -1,6 +1,8 @@
 
 @doc "Translation library front-end"
-module Translate
+module Translator
+
+export translate_dir, translate_file, translate_html
 
 using HTTP: isjson
 
@@ -134,14 +136,14 @@ function translate_html(data, path, url_path, lang, t_fn)
                     prev_type  = tp
                 end
             end
-            counter = Translate.update_translations(counter)
+            counter = Translator.update_translations(counter)
             data
         end
     end
 end
 
 const rx_file = r"(.*__site/)(.*$)"
-function translate_file(file, languages; tr::Translator)
+function translate_file(file, languages; tr::TranslatorDict)
     let html = read(file, String) |> Gumbo.parsehtml,
         (file_path, url_path) = begin
             m = match(rx_page, file)

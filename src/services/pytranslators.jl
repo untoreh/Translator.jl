@@ -30,14 +30,14 @@ function init(::Val{:pytranslators})
 end
 
 function init_translator(SLang, TLangs, ::srv_val)
-    tr = Translator()
+    tr = TranslatorDict()
     for (_, code) in TLangs
         tr[Pair(SLang, code)] = pytranslators.mod[pytranslators.provider]
     end
     tr
 end
 
-function translate(str::StrOrVec, ::srv_val; src=SLang, target::String,  TR::Translator)
+function translate(str::StrOrVec, ::srv_val; src=SLang, target::String,  TR::TranslatorDict)
     let t_fn(x) = TR[Pair(src, target)](x, to_language=target)
         @__MODULE__()._translate(str, t_fn)
     end

@@ -26,7 +26,7 @@ end
 
 function init_translator(SLang, TLangs, ::srv_val)
 	init(srv_sym)
-    tr = Translator()
+    tr = TranslatorDict()
     for (_, code) in TLangs
         tr[Pair(SLang, code)] = pytrans.mod.Translator(from_lang = SLang,
                                    to_lang=code,
@@ -35,7 +35,7 @@ function init_translator(SLang, TLangs, ::srv_val)
     tr
 end
 
-function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::Translator)
+function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::TranslatorDict)
     @__MODULE__()._translate(str, TR[Pair(src, target)])
 end
 

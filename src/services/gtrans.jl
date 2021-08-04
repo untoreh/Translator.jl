@@ -36,13 +36,13 @@ end
 
 function init_translator(SLang, TLangs, ::srv_val)
     init(srv_sym)
-    tr = Translator()
+    tr = TranslatorDict()
     for (_, code) in TLangs
         tr[Pair(Slang, code)] = googletrans.tr.translate
     end
 end
 
-function translate(str::StrOrVec, ::srv_val; src=SLang, target::String, TR::Translator)
+function translate(str::StrOrVec, ::srv_val; src=SLang, target::String, TR::TranslatorDict)
     let t_fn(x) = TR[Pair(SLang, target)](x, src = src, dest = target).text
         @__MODULE__()._translate(str, t_fn)
     end

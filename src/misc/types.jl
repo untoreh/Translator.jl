@@ -5,7 +5,7 @@ const OptPy = Union{PyObject,Nothing}
 const TFunc = Union{Function, OptPy}
 const StrOrVec = Union{String,Vector{String}}
 # stores translate functions for each src/target language pair
-const Translator = Dict{Pair{String, String}, TFunc}
+const TranslatorDict = Dict{Pair{String, String}, TFunc}
 
 @doc """convert a "<script..." string to an `HTMLElement` """
 function convert(T::Type{HTMLElement{:script}}, v::String)
