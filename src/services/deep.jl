@@ -23,7 +23,7 @@ if isunset(srv_sym, :mod)
                       :GoogleTranslator)
 end
 
-function init(::Val{:deep})
+@typesderef function init(::srv_val)
         try
             deep.mod = pyimport("deep_translator")
         catch
@@ -35,16 +35,16 @@ function init(::Val{:deep})
         end
 end
 
-function init_translator(SLang, TLangs, ::srv_val)
-	init(srv_sym)
+@typesderef function init_translator(srv::srv_val; targets=TLangs, source=SLang.code)
+	init(srv)
     tr = TranslatorDict()
-    for (_, code) in TLangs
-        tr[Pair(Slang, code)] = deep.mod[deep.provider](source=SLang, target=code)
+    for (_, tlang) in targets
+        tr[Pair(source, tlang)] = deep.mod[deep.provider](source=source, target=tlang)
     end
     tr
 end
 
-function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::TranslatorDict)
+@typesderef function translate(str::String, ::srv_val; src::String=SLang.code, target::String, TR::TranslatorDict)
     # @show "translating string $str"
     @__MODULE__()._translate(str, TR[Pair(src, target)].translate)
 end

@@ -14,7 +14,7 @@ if isunset(srv_sym, :mod)
     const pytrans = PyTrans(nothing, pytrans_dict(), provider)
 end
 
-function init(::srv_val)
+@typesderef function init(::srv_val)
 	try
         pytrans.mod = pyimport("translate")
     catch
@@ -24,20 +24,19 @@ function init(::srv_val)
 
 end
 
-function init_translator(SLang, TLangs, ::srv_val)
+@typesderef function init_translator(::srv_val; targets=TLangs, source=SLang.code)
 	init(srv_sym)
     tr = TranslatorDict()
-    for (_, code) in TLangs
-        tr[Pair(SLang, code)] = pytrans.mod.Translator(from_lang = SLang,
-                                   to_lang=code,
+    for (_, tlang) in targets
+        tr[Pair(source, tlang)] = pytrans.mod.Translator(from_lang = source,
+                                   to_lang=tlang,
                                    provider=pytrans.provider).translate
     end
     tr
 end
 
-function translate(str::String, ::srv_val; src::String=SLang, target::String, TR::TranslatorDict)
+@typesderef function translate(str::String, ::srv_val; src::String=SLang.code, target::String, TR::TranslatorDict)
     @__MODULE__()._translate(str, TR[Pair(src, target)])
 end
-
 
 push!(REG_SERVICES, srv_sym)

@@ -15,7 +15,7 @@ if isunset(srv_sym, :mod)
     )
 end
 
-function init(::Val{:pytranslators})
+@typesderef function init(::Val{:pytranslators})
     let f() = begin
 	    pytranslators.mod = pyimport("translators")
     end
@@ -29,15 +29,15 @@ function init(::Val{:pytranslators})
 
 end
 
-function init_translator(SLang, TLangs, ::srv_val)
+@typesderef function init_translator(::srv_val; source=SLang.code, targets=TLangs)
     tr = TranslatorDict()
-    for (_, code) in TLangs
-        tr[Pair(SLang, code)] = pytranslators.mod[pytranslators.provider]
+    for (_, tlang) in targets
+        tr[Pair(source, tlang)] = pytranslators.mod[pytranslators.provider]
     end
     tr
 end
 
-function translate(str::StrOrVec, ::srv_val; src=SLang, target::String,  TR::TranslatorDict)
+@typesderef function translate(str::StrOrVec, ::srv_val; src=SLang.code, target::String,  TR::TranslatorDict)
     let t_fn(x) = TR[Pair(src, target)](x, to_language=target)
         @__MODULE__()._translate(str, t_fn)
     end

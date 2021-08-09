@@ -1,4 +1,5 @@
 using JSON
+using Zarr
 
 const cache_path = joinpath(pwd(), "translations.json")
 const cache_path_bak = cache_path * ".bak"

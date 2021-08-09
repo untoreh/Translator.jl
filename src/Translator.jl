@@ -2,9 +2,11 @@
 @doc "Translation library front-end"
 module Translator
 
-export translate_dir, translate_file, translate_html
+export translate_dir, translate_file, translate_html, setlangs!
 
 using HTTP: isjson
+using Gumbo
+using AbstractTrees
 
 include("misc/env.jl")
 include("misc/types.jl")
@@ -17,8 +19,8 @@ include("services/load.jl")
 srv [ :pytrans, :gtrans, :deep, :pytranslators ]
 """
 function init(srv = :deep)
-    if srv ∈ INITIALIZED_SERVICES
-        @warn "$srv is already initialized"
+    if srv ∈ keys(INIT_SERVICES)
+        @debug "$srv is already initialized"
         return
     end
     # NOTE: Conda will install in ~/.local/lib on unix, because conda site-packages is not writeable
@@ -30,8 +32,8 @@ function init(srv = :deep)
     catch
         ErrorException("service $srv not supported") |> throw
     end
-    installed[srv] = true
-    @warn "Initialized $srv translating service"
+    INIT_SERVICES[srv] = true
+    @debug "Initialized $srv service"
 end
 
 @doc "returns the cached translation if present, otherwise the return value of the translation function f"
@@ -40,7 +42,7 @@ function _translate(str::String, fn::TFunc)
         if haskey(translated_text, k)
             translated_text[k]
         else
-            @show "calling translator service for key $k"
+            @debug "calling translator service for key $k"
             let trans = fn(str)
                 translated_text[k] = isnothing(trans) ? "" : trans
             end
@@ -49,126 +51,112 @@ function _translate(str::String, fn::TFunc)
 end
 
 
-function translate_dir(path, service=:deep)
-    @assert isdir(path)
+function translate_dir(path; service=:deep,
+                       inc::IncDict=IncDict())
+    @assert isdir(path) "Path $path is not a valid directory"
     srv_sym = Symbol(service)
-    @assert srv_sym ∈ REG_SERVICES
+    srv = Val(srv_sym)
+    @assert srv_sym ∈ REG_SERVICES "Specified service $srv_sym not supported"
     dir = dirname(path)
-    rx_file = r"(.*$(dir)/)(.*$)"
+    @assert !isnothing(SLang.code) "Source language not set"
+    rx_file = Regex("(.*$(dir)/)(.*\$)")
     # exclude language code denominated directories
     if excluded_translate_dirs === :langs
         exclusions = Set(code for (_, code) in TLangs)
     else
         exclusions = excluded_translate_dirs
     end
-    
+
     ## translator instances
-    TR = init_translator(Val(srv_sym))
-    @inline t_fn(txt, target) = translate(txt, SLang )
+    TR = init_translator(srv)
+    @inline t_fn(txt, target) = translate(txt, srv; src=SLang.code, target=target, TR)
     for file in walkfiles(path;
                           exts=included_translate_exts,
                           dirs=included_translate_dirs,
                           ex_dirs=exclusions)
-        @warn "translating: $file"
+        @debug "translating: $file"
         # continue
-        translate_file(file, TLangs; tr=TR)
-
-        sleep(1)
+        translate_file(file, rx_file, TLangs, t_fn, inc)
+        @debug "translation successful"
     end
 end
 
 @doc """ check that a given string is translatable """
 const punct_rgx = r"^[[:punct:]]+$"
-function istranslatable(str::String)
-    # @show isnothing(match(punct_rgx, str))
+function istranslatable(str::AbstractString)
     !isnothing(str) &&
         !isempty(str) &&
         isnothing(match(punct_rgx, str)) &&
         !(isjson(tobytes(str))[1])         # skip json strings
 end
 
+# @doc "add element to translation queue if it matches criteria"
+# function addelement(el, inc_keys)
+# end
+
+txt_getter(el) = el.text
+txt_setter(el, val) = el.text = val
+alt_getter(el) = el.attributes["alt"]
+alt_setter(el, val) = el.attributes["alt"] = val
 
 @doc """traverses a Gumbo HTMLDoc structure translating text nodes and "alt" attributes """
-function translate_html(data, path, url_path, lang, t_fn)
-    counter = (0, 1000)
-    prev_type = Nothing
-    script_type = HTMLElement{:script}
-    head_type = HTMLElement{:head}
-    insert_json = true
-    ldj = convert(script_type, LDJ.ldj_trans(path, url_path, lang))
+function translate_html(data, path, url_path, lang, t_fn::Function;
+                        inc::IncDict=IncDict())
+
+    inc_keys = keys(inc)
+    q = Queue(translate=x -> t_fn(x, lang))
+    # define element setters
     # use PreOrder to ensure we know if some text belong to a <script> tag
+    # collect all the elements that should be translated
     for (_, el) in enumerate(PreOrderDFS(data.root))
         let tp = typeof(el)
-            if insert_json && tp === head_type
-                push!(el, ldj)
-                insert_json = false
+            if tp ∈ inc_keys
+                push!(el, inc[tp](path, url_path, lang))
             end
             if tp === HTMLText
                 # skip scripts
-                if prev_type !== script_type
-                    let text_node = el.text
-                        # don't query invalid text for translation
-                        if istranslatable(text_node)
-                            let trans = translate(text_node;
-                                                  target=lang,
-                                                  TR=TR, service=SERVICE_VAL)
-                                # don't replace empty results
-                                if !isempty(trans)
-                                    el.text = trans
-                                end
-                            end
-                        end
+                if typeof(el.parent) ∉ skip_nodes
+                    # don't query invalid text for translation
+                    if istranslatable(el.text)
+                        translate!(q, Node(el, txt_getter, txt_setter))
                     end
                 end
             elseif hasfield(tp, :attributes)
                 # also translate "alt" attributes which should hold descriptions
                 if haskey(el.attributes, "alt")
-                    let text_node = el.attributes["alt"]
-                        if istranslatable(text_node)
-                            let trans = translate(text_node; target=lang,
-                                                  TR=TR, service=SERVICE_VAL)
-                                if !isempty(trans)
-                                    el.attributes["alt"] = trans
-                                end
-                            end
-                        end
+                    if istranslatable(el.attributes["alt"])
+                        translate!(q, Node(el, alt_getter, alt_setter))
                     end
-                    prev_type  = tp
                 end
             end
-            counter = Translator.update_translations(counter)
-            data
         end
     end
+    data
 end
 
-const rx_file = r"(.*__site/)(.*$)"
-function translate_file(file, languages; tr::TranslatorDict)
+function translate_file(file, rx, languages, t_fn::Function, inc::IncDict)
     let html = read(file, String) |> Gumbo.parsehtml,
         (file_path, url_path) = begin
-            m = match(rx_page, file)
+            m = match(rx, file)
             (String(m[1]), String(m[2]))
         end
-        # display("translating $file")
-        many = 100
+        @debug "translating $file"
         for (_, code) in languages
-            display("lang: $code")
+            @debug "lang: $code"
             let t_path = joinpath(file_path, code, url_path),
                 d_path = dirname(t_path)
                 if !isdir(d_path)
                     mkpath(d_path)
                 end
+                @debug "writing to path $t_path"
                 open(t_path, "w") do io
                     # @show "translating html"
-                    translate_html(html, file_path, url_path, code, tr) |>
+                    translate_html(html, file_path, url_path, code, t_fn; inc) |>
                         x -> print(io, x)
                     # @show "written"
                 end
             end
-            many -= 1
-            if many == 0 return end
         end
-        @show "DONE"
     end
 end
 

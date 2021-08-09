@@ -11,7 +11,7 @@ if isunset(srv_sym)
     const googletrans =  GoogleTrans(nothing, nothing)
 end
 
-function init(::srv_val)
+@typesderef function init(::srv_val)
 	let f() = begin
         googletrans.mod = pyimport("googletrans")
         googletrans.tr = googletrans.mod.Translator(
@@ -34,15 +34,15 @@ function init(::srv_val)
 
 end
 
-function init_translator(SLang, TLangs, ::srv_val)
+@typesderef function init_translator(::srv_val, targets=TLangs, source=SLang.code)
     init(srv_sym)
     tr = TranslatorDict()
-    for (_, code) in TLangs
-        tr[Pair(Slang, code)] = googletrans.tr.translate
+    for (_, tlang) in targets
+        tr[Pair(source, tlang)] = googletrans.tr.translate
     end
 end
 
-function translate(str::StrOrVec, ::srv_val; src=SLang, target::String, TR::TranslatorDict)
+@typesderef function translate(str::StrOrVec, ::srv_val; src=SLang.code, target::String, TR::TranslatorDict)
     let t_fn(x) = TR[Pair(SLang, target)](x, src = src, dest = target).text
         @__MODULE__()._translate(str, t_fn)
     end
