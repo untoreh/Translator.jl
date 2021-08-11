@@ -38,9 +38,7 @@ end
 end
 
 @typesderef function translate(str::StrOrVec, ::srv_val; src=SLang.code, target::String,  TR::TranslatorDict)
-    let t_fn(x) = TR[Pair(src, target)](x, to_language=target)
-        @__MODULE__()._translate(str, t_fn)
-    end
+    TR[Pair(src, target)](x, to_language=target)(str)
 end
 
 push!(REG_SERVICES, srv_sym)

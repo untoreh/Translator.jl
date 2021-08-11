@@ -46,7 +46,7 @@ end
 
 @typesderef function translate(str::String, ::srv_val; src::String=SLang.code, target::String, TR::TranslatorDict)
     # @show "translating string $str"
-    @__MODULE__()._translate(str, TR[Pair(src, target)].translate)
+    TR[Pair(src, target)].translate(str)
 end
 
 push!(REG_SERVICES, srv_sym)

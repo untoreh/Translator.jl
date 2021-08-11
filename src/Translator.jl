@@ -36,21 +36,6 @@ function init(srv = :deep)
     @debug "Initialized $srv service"
 end
 
-@doc "returns the cached translation if present, otherwise the return value of the translation function f"
-function _translate(str::String, fn::TFunc)
-    let k = hash(str)
-        if haskey(tr_cache_dict, k)
-            tr_cache_dict[k]
-        elseif haskey(tr_cache_tmp, k)
-            tr_cache_tmp[k]
-        else
-            @debug "calling translator service for key $k"
-            fn(str)
-        end
-    end
-end
-
-
 function translate_dir(path; service=:deep,
                        inc::IncDict=IncDict())
     @assert isdir(path) "Path $path is not a valid directory"

@@ -83,13 +83,21 @@ function translate!(q::Queue, finish::Bool)
 end
 
 function translate!(q::Queue, node::Node)
-    len = length(node.get(node.el))
-    if q.sz[] + len > q.buffer && length(q.bucket) > 0
-        push!(q.bucket, node)
-        _update_elements(q)
-    else
-        q.sz[] += len
-        push!(q.bucket, node)
+    let txt = node.get(node.el),
+        k = hash(txt),
+        len = length(txt)
+        if haskey(tr_cache_dict, k)
+            node.set(node.el, tr_cache_dict[k])
+        elseif haskey(tr_cache_tmp, k)
+            node.set(node.el, tr_cache_tmp[k])
+        else
+            if q.sz[] + len > q.buffer && length(q.bucket) > 0
+                push!(q.bucket, node)
+                _update_elements(q)
+            else
+                q.sz[] += len
+                push!(q.bucket, node)
+            end
+        end
+        end
     end
-    q
-end
