@@ -49,27 +49,44 @@ end
     sz = Ref{Int}(0)
     # element, getter and setter
     bucket::Vector{Node} = []
-    glue = " ;*;#;&;*; "
-    splitGlue = r"\s?;\*;#;&;\*;\s?"
-    buffer = 2000
+    glue = " \n[[...]]\n "
+    splitGlue = r"\s?\n?\[\[\.\.\.\]\]\n?\s?"
+
+    buffer = 1600
     translate::Function
+end
+
+function _update_elements(q::Queue)
+    query = join((n.get(n.el) for n in q.bucket), q.glue)
+    @debug "querying translation function, " *
+        "bucket: $(length(q.bucket)), query: $(length(query))"
+    trans = q.translate(query) |> x -> split(x, q.splitGlue)
+    if length(trans) !== length(q.bucket)
+        display(query)
+        for t in trans display(t) end
+        throw(("mismatching batched translation query result: " *
+            "$(length(trans)) - $(length(q.bucket)) "))
+    else
+        for (n, t) in zip(q.bucket, trans)
+            tr_cache_tmp[hash(n)] = t
+            n.set(n.el, t)
+        end
+    end
+    empty!(q.bucket)
+    q.sz[] = 0
+end
+
+function translate!(q::Queue, finish::Bool)
+    if finish && q.sz[] > 0
+        _update_elements(q)
+    end
 end
 
 function translate!(q::Queue, node::Node)
     len = length(node.get(node.el))
     if q.sz[] + len > q.buffer && length(q.bucket) > 0
         push!(q.bucket, node)
-        query = join((n.get(n.el) for n in q.bucket), q.glue)
-        trans = q.translate(query) |> x -> split(x, q.splitGlue)
-        if length(trans) !== length(q.bucket)
-            @error "mismatching batched translation query result"
-        else
-            for (n, t) in zip(q.bucket, trans)
-                n.set(n.el, t)
-                @show n.get(n.el)
-            end
-        end
-        empty!(q.bucket)
+        _update_elements(q)
     else
         q.sz[] += len
         push!(q.bucket, node)

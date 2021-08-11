@@ -18,7 +18,7 @@ function convert(T::Type{HTMLElement{:script}}, v::String)
 end
 
 @doc "convert string to bytes"
-tobytes(str::String)::Vector{UInt8} = Vector{UInt8}(str)
+tobytes(str::Union{SubString, String})::Vector{UInt8} = Vector{UInt8}(str)
 
 import JSON
 # json keys are strings, but we use hashes which are UInt

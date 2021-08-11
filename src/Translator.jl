@@ -39,13 +39,13 @@ end
 @doc "returns the cached translation if present, otherwise the return value of the translation function f"
 function _translate(str::String, fn::TFunc)
     let k = hash(str)
-        if haskey(translated_text, k)
-            translated_text[k]
+        if haskey(tr_cache_dict, k)
+            tr_cache_dict[k]
+        elseif haskey(tr_cache_tmp, k)
+            tr_cache_tmp[k]
         else
             @debug "calling translator service for key $k"
-            let trans = fn(str)
-                translated_text[k] = isnothing(trans) ? "" : trans
-            end
+            fn(str)
         end
     end
 end
@@ -82,11 +82,11 @@ function translate_dir(path; service=:deep,
 end
 
 @doc """ check that a given string is translatable """
-const punct_rgx = r"^[[:punct:]]+$"
+const punct_rgx = r"^([[:punct:]]+)|(\s+)$"
 function istranslatable(str::AbstractString)
     !isnothing(str) &&
         !isempty(str) &&
-        isnothing(match(punct_rgx, str)) &&
+        !occursin(punct_rgx, str) &&
         !(isjson(tobytes(str))[1])         # skip json strings
 end
 
@@ -131,6 +131,7 @@ function translate_html(data, path, url_path, lang, t_fn::Function;
             end
         end
     end
+    translate!(q, true)
     data
 end
 
@@ -157,6 +158,7 @@ function translate_file(file, rx, languages, t_fn::Function, inc::IncDict)
                 end
             end
         end
+        save_cache()
     end
 end
 
