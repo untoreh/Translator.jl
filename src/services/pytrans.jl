@@ -1,5 +1,6 @@
 srv_sym = :pytrans
 srv_val = Val{srv_sym}
+PyTransTR = Tuple{srv_val, TranslatorDict}
 provider = :mymemory
 pytrans_dict = Dict{Tuple{Symbol,String,String},OptPy}
 
@@ -27,16 +28,19 @@ end
 @typesderef function init_translator(::srv_val; targets=TLangs, source=SLang.code)
 	init(srv_sym)
     tr = TranslatorDict()
-    for (_, tlang) in targets
-        tr[Pair(source, tlang)] = pytrans.mod.Translator(from_lang = source,
-                                   to_lang=tlang,
-                                   provider=pytrans.provider).translate
+    for lang in targets
+        let tlang = lang.code
+            tr[(src=source, trg=tlang)] =
+                pytrans.mod.Translator(from_lang = source,
+                                       to_lang=tlang,
+                                       provider=pytrans.provider).translate
+        end
     end
-    tr
+    (srv, tr)
 end
 
-@typesderef function translate(str::String, ::srv_val; src::String=SLang.code, target::String, TR::TranslatorDict)
-    TR[Pair(src, target)](str)
+@typesderef function get_tfun(lang::LangPair, TR::PyTransTR)
+    TR[2][lang]
 end
 
 push!(REG_SERVICES, srv_sym)

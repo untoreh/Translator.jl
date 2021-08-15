@@ -5,6 +5,7 @@ end
 
 srv_sym = :googletrans
 srv_val = Val{srv_sym}
+GTrans = Tuple{srv_val, TranslatorDict}
 
 
 if isunset(srv_sym)
@@ -34,16 +35,17 @@ end
 
 end
 
-@typesderef function init_translator(::srv_val, targets=TLangs, source=SLang.code)
-    init(srv_sym)
+@typesderef function init_translator(srv::srv_val, targets=TLangs, source=SLang.code)
+    init(srv)
     tr = TranslatorDict()
-    for (_, tlang) in targets
-        tr[Pair(source, tlang)] = googletrans.tr.translate
+    for lang in targets
+        tr[(src=source, trg=lang.code)] = googletrans.tr.translate
     end
+    (srv, tr)
 end
 
-@typesderef function translate(str::StrOrVec, ::srv_val; src=SLang.code, target::String, TR::TranslatorDict)
-    TR[Pair(SLang, target)](x, src = src, dest = target).text(str)
+@typesderef function get_tfun(lang::LangPair, TR::GTrans)
+    txt -> TR[2][lang](txt, src = lang.src, dest = lang.trg).text
 end
 
 push!(REG_SERVICES, srv_sym)

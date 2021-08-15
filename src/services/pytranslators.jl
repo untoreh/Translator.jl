@@ -6,6 +6,7 @@ end
 
 srv_sym = :pytranslators
 srv_val = Val{srv_sym}
+PyTranslatorsTR = Tuple{srv_val, TranslatorDict}
 
 if isunset(srv_sym, :mod)
     const pytranslators = PyTranslators(
@@ -29,16 +30,19 @@ end
 
 end
 
-@typesderef function init_translator(::srv_val; source=SLang.code, targets=TLangs)
+@typesderef function init_translator(srv::srv_val; source=SLang.code, targets=TLangs)
+    init(srv)
     tr = TranslatorDict()
-    for (_, tlang) in targets
-        tr[Pair(source, tlang)] = pytranslators.mod[pytranslators.provider]
+    let p = pytranslators.mod[pytranslators.provider]
+        for lang in targets
+            tr[(src=source, trg=lang.code)] = p
+        end
     end
-    tr
+    (srv, tr)
 end
 
-@typesderef function translate(str::StrOrVec, ::srv_val; src=SLang.code, target::String,  TR::TranslatorDict)
-    TR[Pair(src, target)](x, to_language=target)(str)
+@typesderef function get_tfun(lang::LangPair, TR::PyTranslatorsTR)
+    TR[2][lang](x, to_language=lang.trg)
 end
 
 push!(REG_SERVICES, srv_sym)

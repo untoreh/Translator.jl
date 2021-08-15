@@ -5,21 +5,23 @@ mutable struct Deep
     provider::Symbol
 end
 
+
 srv_sym = :deep
 srv_val = Val{srv_sym}
+DeepTranslator = Tuple{srv_val, TranslatorDict}
 
 if isunset(srv_sym, :mod)
     const deep = Deep(nothing, Dict(),
-                (:GoogleTranslator,
-                 :MicrosoftTranslator,
-                 :PonsTranslator,
-                 :LingueeTranslator,
-                 :MyMemoryTranslator,
-                 :YandexTranslator,
-                 :DeepL,
-                 :QCRI,
-                 :single_detection,
-                 :batch_detection),
+                      (:GoogleTranslator,
+                       :LingueeTranslator,
+                       :MyMemoryTranslator,
+                       # :MicrosoftTranslator,
+                       # :PonsTranslator,
+                       # :YandexTranslator,
+                       # :DeepL,
+                       # :QCRI,
+                       :single_detection,
+                       :batch_detection),
                       :GoogleTranslator)
 end
 
@@ -38,15 +40,17 @@ end
 @typesderef function init_translator(srv::srv_val; targets=TLangs, source=SLang.code)
 	init(srv)
     tr = TranslatorDict()
-    for (_, tlang) in targets
-        tr[Pair(source, tlang)] = deep.mod[deep.provider](source=source, target=tlang)
+    for lang in targets
+        let tlang = lang.code
+            tr[(src=source, trg=tlang)] = deep.mod[deep.provider](source=source, target=tlang)
+        end
     end
-    tr
+    (srv, tr)
 end
 
-@typesderef function translate(str::String, ::srv_val; src::String=SLang.code, target::String, TR::TranslatorDict)
+@typesderef function get_tfun(lang::LangPair, TR::DeepTranslator)
     # @show "translating string $str"
-    TR[Pair(src, target)].translate(str)
+    TR[2][lang].translate
 end
 
 push!(REG_SERVICES, srv_sym)

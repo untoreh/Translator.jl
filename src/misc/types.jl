@@ -1,5 +1,6 @@
 using PyCall
 using Gumbo: HTMLElement, HTMLText
+using Base: @NamedTuple
 
 const OptPy = Union{PyObject,Nothing}
 const TFunc = Union{Function, OptPy}
@@ -8,9 +9,11 @@ const StrOrVec = Union{String,Vector{String}}
 # an el of HTMLElement returned by the function
 const IncDict = Dict{Any, Function}
 
+const LangPair = @NamedTuple {src::String, trg::String}
+
 # stores translate functions for each src/target language pair
-const TranslatorDict = Dict{Pair{String, String}, TFunc}
-const TuPair = Union{Tuple{String, String}, Pair{String, String}}
+const TranslatorDict = Dict{LangPair, TFunc}
+const TranslatorService = Tuple{Val, TranslatorDict}
 
 @doc """convert a "<script..." string to an `HTMLElement` """
 function convert(T::Type{HTMLElement{:script}}, v::String)
