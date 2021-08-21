@@ -1,6 +1,6 @@
 using LevelDB
 using StringViews
-using BitConverter: bytes
+using BitConverter: bytes, to_int, to_big
 
 const tr_db_path = "translations.db"
 const empty_vec = Vector{UInt8}()
@@ -12,13 +12,27 @@ const db = TDB(nothing)
 
 Base.setindex!(db::LevelDB.DB, v::String, k::String...) = db[k] = v
 Base.setindex!(db::LevelDB.DB, v::String, k::Int...) = db[k] = v
+Base.convert(::Type{<:Int}, v::Vector{UInt8}) = to_int(v)
+Base.convert(::Type{<:UInt}, v::Vector{UInt8}) = UInt(to_big(v))
 
 function Base.length(db::LevelDB.DB)
     length(keys(db))
 end
 
+function Base.in(k::UInt64, db::LevelDB.DB)
+	in(bytes(k), db)
+end
+
 function Base.size(db::LevelDB.DB)
     sum([length(v) for v in values(db, Vector{UInt8})])
+end
+
+function Base.setindex!(db::LevelDB.DB, v::String, k::String)
+    db[Vector{UInt8}(k)] = Vector{UInt8}(v)
+end
+
+function Base.getindex(db::LevelDB.DB, k::String, T::Type = StringView)
+    StringView(db[Vector{UInt8}(k)])
 end
 
 function Base.setindex!(db::LevelDB.DB, v::String, k::AbstractSet{Int})
@@ -57,6 +71,7 @@ function Base.values(db::LevelDB.DB, T::Type=StringView)
     end
 end
 
+Base.delete!(db::LevelDB.DB, s::AbstractString) = delete!(db, Vector{UInt8}(s))
 Base.empty!(db::LevelDB.DB) = delete!(db, keys(db, Vector{UInt8}))
 
 function load_db(path=tr_db_path)
@@ -66,7 +81,7 @@ function load_db(path=tr_db_path)
     end
 end
 
-function save_to_db(db=db.db; force=false, nojson=false)
+function save_to_db(db::LevelDB.DB=db.db; force=false, nojson=false)
     if length(tr_cache_tmp) > tr_cache_max_diff || force
         @debug "saving $(length(tr_cache_tmp)) translations"
         if nojson
