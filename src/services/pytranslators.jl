@@ -42,7 +42,7 @@ end
 end
 
 @typesderef function get_tfun(lang::LangPair, TR::PyTranslatorsTR)
-    TR[2][lang](x, to_language=lang.trg)
+    x -> TR[2][lang](x, from_language=lang.src, to_language=lang.trg)
 end
 
 push!(REG_SERVICES, srv_sym)

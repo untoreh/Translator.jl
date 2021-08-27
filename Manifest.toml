@@ -14,6 +14,17 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
+[[BinaryProvider]]
+deps = ["Libdl", "Logging", "SHA"]
+git-tree-sha1 = "ecdec412a9abc8db54c0efc5548c64dfce072058"
+uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
+version = "0.5.10"
+
+[[BitConverter]]
+git-tree-sha1 = "5274a781a2e71cfb9a2083dfcd2ca5318716a660"
+uuid = "3a3ce9e8-98e7-11e9-0fa0-055639f146d3"
+version = "0.1.1"
+
 [[CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
 git-tree-sha1 = "9aa8a5ebb6b5bf469a7e0e2b5202cf6f8c291104"
@@ -37,6 +48,12 @@ deps = ["JSON", "VersionParsing"]
 git-tree-sha1 = "299304989a5e6473d985212c28928899c74e9421"
 uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
 version = "1.5.2"
+
+[[DataDeps]]
+deps = ["BinaryProvider", "HTTP", "Libdl", "Reexport", "SHA", "p7zip_jll"]
+git-tree-sha1 = "4f0e41ff461d42cfc62ff0de4f1cd44c6e6b3771"
+uuid = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
+version = "0.7.7"
 
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -86,6 +103,12 @@ deps = ["Libdl", "Pkg"]
 git-tree-sha1 = "86111f5523d7c42da0edd85ef7999c663881ac1e"
 uuid = "528830af-5a63-567c-a44a-034ed33b8444"
 version = "0.10.1+1"
+
+[[HTML_Entities]]
+deps = ["StrTables"]
+git-tree-sha1 = "c4144ed3bc5f67f595622ad03c0e39fa6c70ccc7"
+uuid = "7693890a-d069-55fe-a829-b4a6d304f0ee"
+version = "1.0.1"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "Logging", "MbedTLS", "NetworkOptions", "Sockets", "URIs"]
@@ -179,6 +202,12 @@ version = "1.0.3"
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 
+[[Memoization]]
+deps = ["MacroTools"]
+git-tree-sha1 = "42d48cac95e0fee730ba2fff477adc68c52c65f4"
+uuid = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
+version = "0.1.13"
+
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
@@ -227,6 +256,11 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
+[[Reexport]]
+git-tree-sha1 = "22a05aff275f6704f8769799beafe47ee7d14416"
+uuid = "189a3867-3050-52da-a836-e630ba90ab69"
+version = "1.2.1"
+
 [[Requires]]
 deps = ["UUIDs"]
 git-tree-sha1 = "4036a3bd08ac7e968e27c203d45f5fff15020621"
@@ -268,6 +302,17 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
+[[StrTables]]
+deps = ["Dates"]
+git-tree-sha1 = "5998faae8c6308acc25c25896562a1e66a3bb038"
+uuid = "9700d1a9-a7c8-5760-9816-a99fda30bb8f"
+version = "1.0.1"
+
+[[StringViews]]
+git-tree-sha1 = "71fa43afeea22654042ce9b809d32e223d015a5d"
+uuid = "354b36f9-a18e-4713-926e-db85100087ba"
+version = "0.1.0"
+
 [[TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
@@ -302,6 +347,12 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 git-tree-sha1 = "80229be1f670524750d905f8fc8148e5a8c4537f"
 uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
 version = "1.2.0"
+
+[[WordTokenizers]]
+deps = ["DataDeps", "HTML_Entities", "StrTables", "Unicode"]
+git-tree-sha1 = "01dd4068c638da2431269f49a5964bf42ff6c9d2"
+uuid = "796a5d58-b03d-544a-977e-18100b691f6e"
+version = "0.5.6"
 
 [[XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]

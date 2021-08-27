@@ -2,6 +2,9 @@ mutable struct Argos
     mod::OptPy
     pkg::OptPy
     trans::OptPy
+    tags::OptPy
+    Tag::OptPy
+    translate_tags::OptPy
     tr::Dict{Symbol, OptPy}
 end
 
@@ -10,7 +13,7 @@ srv_val = Val{srv_sym}
 ArgosTranslator = Tuple{srv_val, TranslatorDict}
 
 if isunset(srv_sym, :mod)
-    const argos = Argos(nothing, nothing, nothing, Dict())
+    const argos = Argos(nothing, nothing, nothing, nothing, nothing, nothing, Dict())
 end
 
 
@@ -33,15 +36,20 @@ function argos_download_models()
 end
 
 @typesderef function init(::srv_val)
-    try
+    let f() = begin
         argos.mod = pyimport("argostranslate")
         argos.trans = pyimport("argostranslate.translate")
         argos.pkg = pyimport("argostranslate.package")
-    catch
-        Conda.pip("install", "argostranslate")
-        argos.mod = pyimport("argostranslate")
-        argos.trans = pyimport("argostranslate.translate")
-        argos.pkg = pyimport("argostranslate.package")
+        argos.tags = pyimport("argostranslate.tags")
+        argos.Tag = argos.tags.Tag
+        argos.translate_tags = argos.tags.translate_tags
+    end
+        try
+            f()
+        catch
+            Conda.pip("install", "argostranslate")
+            f()
+        end
     end
     argos_download_models()
 end
@@ -70,6 +78,18 @@ end
 @typesderef function get_tfun(lang::LangPair, TR::ArgosTranslator)
     # @show "translating string $str"
     TR[2][lang].translate
+end
+
+@kwdef struct ArgosQueue <: Queue
+    q::GlueQueue
+end
+
+function translate!(q::GlueQueue, el::HTMLNode, srv::Val{:argos})
+    translate!(q, el, srv; finish=true)
+end
+
+function translate!(q::GlueQueue, ::Val{:argos}; finish=false)
+    translate!(q; finish)
 end
 
 push!(REG_SERVICES, srv_sym)

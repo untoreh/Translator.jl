@@ -2,9 +2,11 @@
 @doc "Translation library front-end"
 module Translator
 
-export translate_dir, translate_file, translate_html, setlangs!
+export translate_dir, translate_file, translate_html, setlangs!, sethostname!, trav_files, trav_langs
 
+using Memoization
 using HTTP: isjson
+using URIs: URI
 using Gumbo
 using AbstractTrees
 
@@ -37,8 +39,9 @@ function init(srv = :deep)
     @debug "Initialized $srv service"
 end
 
-function translate_dir(path; service=:deep,
-                       inc::IncDict=IncDict())
+@enum traverse_method trav_files=1 trav_langs=2
+
+function translate_dir(path; service=:deep, method::traverse_method=files)
     @assert isdir(path) "Path $path is not a valid directory"
     srv_sym = Symbol(service)
     srv = Val(srv_sym)
@@ -47,8 +50,9 @@ function translate_dir(path; service=:deep,
     @assert !isnothing(SLang.code) "Source language not set"
     rx_file = Regex("(.*$(dir)/)(.*\$)")
     # exclude language code denominated directories
-    if excluded_translate_dirs === :langs
-        exclusions = Set(code for (_, code) in TLangs)
+    if length(excluded_translate_dirs) > 0 &&
+        first(excluded_translate_dirs) === :langs
+        exclusions = Set(lang.code for lang in TLangs)
     else
         exclusions = excluded_translate_dirs
     end
@@ -56,13 +60,61 @@ function translate_dir(path; service=:deep,
     ## translator instances
     TR = init_translator(srv)
     langpairs = [(src=SLang.code, trg=lang.code) for lang in TLangs]
+
+    if method == trav_files
+        _file_wise(path; exclusions, rx_file, langpairs, TR)
+    elseif method == trav_langs
+        _lang_wise(path; exclusions, rx_file, langpairs, TR)
+    end
+
+    Translator.save_to_db(;force=true)
+end
+
+function write_files(trees)
+    for (file, tree) in trees
+        open(file, "w") do f
+	        print(f, tree)
+        end
+        delete!(trees, file)
+    end
+end
+
+function _lang_wise(path; exclusions, rx_file, langpairs, TR)
+    trees = Dict{String, HTMLDocument}()
+    prev_bucket_len = 0
+    q = nothing
+    for pair in langpairs
+        @debug "lang wise translation for $pair"
+        for file in walkfiles(path;
+                              exts=included_translate_exts,
+                              dirs=included_translate_dirs,
+                              ex_dirs=exclusions)
+            (t_path, (q, out)) = parse_file(file, rx_file, pair, TR, q)
+            # if the queue was flushed, previous files should be fully translated
+            # so we can write them to storage and remove them
+            let new_bucket_len = length(q.bucket)
+                if new_bucket_len < prev_bucket_len
+                    write_files(trees)
+                end
+                prev_bucket_len = new_bucket_len
+            end
+            trees[t_path] = out
+        end
+        # finish remaining translations for pair
+        translate!(q, TR[1]; finish=true)
+        write_files(trees)
+        q = nothing
+    end
+end
+
+function _file_wise(path; exclusions, rx_file, langpairs, TR)
     for file in walkfiles(path;
                           exts=included_translate_exts,
                           dirs=included_translate_dirs,
                           ex_dirs=exclusions)
         @debug "translating: $file"
         # continue
-        translate_file(file, rx_file, langpairs, TR, inc)
+        translate_file(file, rx_file, langpairs, TR)
         @debug "translation successful"
     end
 end
@@ -77,95 +129,137 @@ function istranslatable(str::AbstractString)
         !(isjson(tobytes(str))[1])         # skip json strings
 end
 
-# @doc "add element to translation queue if it matches criteria"
-# function addelement(el, inc_keys)
-# end
+@doc "rewrite urls that match a particular hostname, prepending target lang to url path"
+function rewrite_url(el, rewrite_path, hostname)
+    let u = URI(getattr(el, "href"))
+        if (isempty(u.host) || hostname === u.host) &&
+            startswith(u.path, "/") # don't rewrite local #id links
 
-txt_getter(el) = el.text
-txt_setter(el, val) = el.text = val
-alt_getter(el) = el.attributes["alt"]
-alt_setter(el, val) = el.attributes["alt"] = val
+            join([rewrite_path, u.path]) |>
+                x -> URI(u; path=x) |> string |>
+                x -> setattr!(el, "href", x)
+        end
+    end
+end
+
+@doc """ check that a link doesn't have classes belonging to skip_class """
+function in_skip_class(tp, el)
+    hasfield(tp, :attributes) &&
+        haskey(el.attributes, "class") &&
+        any(occursin(c, el.attributes["class"]) for c in skip_class)
+end
 
 @doc """traverses a Gumbo HTMLDoc structure translating text nodes and "alt" attributes """
-function translate_html(data, path, url_path, pair, TR::Any;
-                        inc::IncDict=IncDict())
+function translate_html(data, file_path, url_path, pair::LangPair, TR::TranslatorService;
+                        q::Union{Nothing, Queue}=nothing, hostname=hostname, finish=true)
 
-    inc_keys = keys(inc)
-    tfun = get_tfun(pair, TR)
-    q = Queue(translate=tfun, pair=pair)
+    tform_els = keys(tforms)
+    rewrite_path = "/" * pair.trg
+
+    srv = TR[1]
+    out_tree = deepcopy(data)
+    if isnothing(q)
+        q = get_tfun(pair, TR) |> f -> get_queue(f, pair, TR)
+    end
+
     skip_children = false
-    last_skip = nothing
-    last_children = nothing
-    # if using :argos translation service, don't use bulk translation
-    # define element setters
-    # use PreOrder to ensure we know if some text belong to a <script> tag
-    # collect all the elements that should be translated
-    for (_, el) in enumerate(PreOrderDFS(data.root))
-        let tp = typeof(el)
-            if tp ∈ inc_keys
-                push!(el, inc[tp](path, url_path, pair.trg))
-            end
-            # skip unwanted nodes and their children
-            if tp ∈ skip_nodes
-                last_skip = tp
-                skip_children = true
-                continue
-            elseif skip_children
-                let tpp = typeof(el.parent)
-                    if tpp === last_skip ||
-                        tpp === last_children
-                        last_children = tp
-                        continue
-                    else
-                        skip_children = false
-                    end
+    last_skip = Nothing
+    last_children = Nothing
+    # If using :argos translation service, don't use bulk translation.
+    # Use PreOrder to ensure we know if some text belong to a <script> tag.
+    # Prefetch the elements (collect) since we are going to modify the tree inplace,
+    # which would change the running loop iteration order.
+    for el in PreOrderDFS(out_tree.root)
+        tp = typeof(el)
+        # apply modifications
+        if tp ∈ tform_els
+            tforms[tp](el, file_path, url_path, pair)
+        end
+        # skip unwanted nodes and their children
+        if tp ∈ skip_nodes || in_skip_class(tp, el)
+            last_skip = tp
+            skip_children = true
+            continue
+        elseif skip_children
+            let tpp = typeof(el.parent)
+                if tpp === last_skip ||
+                    tpp === last_children
+                    last_children = tp
+                    continue
+                else
+                    skip_children = false
                 end
             end
+        end
 
-            if tp === HTMLText
-                # don't query invalid text for translation
-                if istranslatable(el.text)
-                    translate!(q, Node(el, txt_getter, txt_setter))
+        if tp === HTMLText
+            # don't query invalid text for translation
+            if istranslatable(el.text)
+                translate!(q, el, srv)
+            end
+        elseif tp == HTMLElement{:a}
+            # append translated /lang/ path to local URLs
+            if haskey(el.attributes, "href")
+                rewrite_url(el, rewrite_path, hostname)
+            end
+        elseif hasfield(tp, :attributes)
+            # also translate "alt" attributes which should hold descriptions
+            if haskey(el.attributes, "alt")
+                if istranslatable(el.attributes["alt"])
+                    translate!(q, el, srv)
                 end
-            elseif hasfield(tp, :attributes)
-                # also translate "alt" attributes which should hold descriptions
-                if haskey(el.attributes, "alt")
-                    if istranslatable(el.attributes["alt"])
-                        translate!(q, Node(el, alt_getter, alt_setter))
-                    end
+            elseif haskey(el.attributes, "title")
+                if istranslatable(el.attributes["title"])
+                    translate!(q, el, srv)
                 end
             end
         end
     end
-    Translator.translate!(q, true)
-    data
+    translate!(q, srv; finish=finish)
+    (q, out_tree)
 end
 
-function translate_file(file, rx, langpairs, TR::TranslatorService, inc::IncDict)
-    let html = read(file, String) |> Gumbo.parsehtml,
-        (file_path, url_path) = begin
-            m = match(rx, file)
-            (String(m[1]), String(m[2]))
-        end
+function translate_file(file, rx, langpairs::Vector{LangPair}, TR::TranslatorService; t_path=nothing)
+    let html = parse_html(file),
+        (file_path, url_path) = split_file_path(rx, file)
         @debug "translating $file"
         for pair in langpairs
             @debug "lang: $(pair.trg)"
-            let t_path = joinpath(file_path, pair.trg, url_path),
-                d_path = dirname(t_path),
-                data = deepcopy(html)
+            let t_path = isnothing(t_path) ? joinpath(file_path, pair.trg, url_path) : t_path,
+                d_path = dirname(t_path)
                 if !isdir(d_path)
                     mkpath(d_path)
                 end
                 @debug "writing to path $t_path"
                 open(t_path, "w") do io
                     # @show "translating html"
-                    translate_html(data, file_path, url_path, pair, TR; inc) |>
-                        x -> print(io, x)
+                    translate_html(html, file_path, url_path, pair, TR) |>
+                        q_out -> print(io, q_out[2])
                     # @show "written"
                 end
             end
         end
-        # save_cache()
+    end
+end
+
+@memoize function split_file_path(rx, file)
+    m = match(rx, file)
+    (String(m[1]), String(m[2]))
+end
+
+@memoize parse_html(file) = read(file, String) |> Gumbo.parsehtml
+
+function parse_file(file, rx, pair::LangPair, TR::TranslatorService, q::Union{Queue, Nothing}=nothing)
+    html = parse_html(file)
+    (file_path, url_path) = split_file_path(rx, file)
+    @debug "collecting elements for $file"
+    let t_path = joinpath(file_path, pair.trg, url_path),
+        d_path = dirname(t_path)
+        if !isdir(d_path)
+            mkpath(d_path)
+        end
+        (t_path,
+        translate_html(html, file_path, url_path, pair, TR; q, finish=false))
     end
 end
 

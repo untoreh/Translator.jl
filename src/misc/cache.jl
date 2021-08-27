@@ -12,7 +12,7 @@ const tr_cache_disk_length = Ref(0)
 const tr_cache_dict = cache_dict_type()
 const tr_cache_tmp = cache_dict_type()
 @doc "how many translated keys can disk cache be out of sync"
-const tr_cache_max_diff = 200
+const tr_cache_max_diff = 10000
 const tr_cache_buf = IOBuffer() # not thread safe
 
 load_cache(s::String) = load_cache([s])

@@ -1,17 +1,25 @@
-using Base: @kwdef
+include("tokens.jl")
+
 using BitConverter: bytes
 import Base.push!
 using Gumbo: HTMLElement
 
 const included_translate_dirs = Set(("posts", "tag", "reads", "_rss"))
-const excluded_translate_dirs = Set{String}()
+const excluded_translate_dirs = Set{Union{Symbol, String}}()
 const included_translate_exts = Set((".md", ".html"))
-const skip_nodes = Set([HTMLElement{:script}, HTMLElement{:style}, HTMLElement{:code},
-                        HTMLElement{:link}])
-
+const skip_nodes = Set(
+    HTMLElement{sym} for sym in [:link, :code, :style, :script, :address, :applet, :audio, :canvas, :embed, :time, :video]
+        )
+const skip_class = Set(("menu-lang-btn", ))
+# Every element is a function that applies modifications
+# an el of HTMLElement
+# Function signature: (el::HTMLElement, file_path::String, url_path::String, pair::LangPair)
+tforms = Dict{Type, Function}()
 
 const REG_SERVICES = Vector{Symbol}(undef, 0)
 const INIT_SERVICES = Dict{Symbol, Bool}()
+
+hostname = nothing
 
 @kwdef mutable struct Lang
     lang::Union{Nothing, String} = nothing
@@ -42,73 +50,57 @@ function setlangs!(source::T,
     end
 end
 
-struct Node
-    el::Any
-    get::Function
-    set::Function
+function sethostname!(host)
+    global hostname
+    u = URI(host)
+    hostname = isempty(u.host) ? u.path : u.host
 end
 
-@kwdef struct Queue
-    sz = Ref{Int}(0)
-    # element, getter and setter
-    bucket::Vector{Node} = []
-    glue = " \n[[...]]\n "
-    splitGlue = r"\s?\n?\[\[\.\.\.\]\]\n?"
-
-    buffer = 1600
-    translate::Function
-    pair::LangPair
+function get_queue(f, pair, TR::TranslatorService,  ::Any...)
+    GlueQueue(translate=f, pair=pair, TR=TR)
 end
 
-function _update_elements(q::Queue)
-    query = join((n.get(n.el) for n in q.bucket), q.glue)
+function _update_elements!(q::GlueQueue)
+    query = join((get_text(el) for el in q.bucket), q.glue)
     @debug "querying translation function, " *
         "bucket: $(length(q.bucket)), query: $(length(query))"
     trans = q.translate(query) |> x -> split(x, q.splitGlue)
-    if length(trans) !== length(q.bucket)
-        display(query)
-        for t in trans display(t) end
-        throw(("mismatching batched translation query result: " *
-            "$(length(trans)) - $(length(q.bucket)) "))
-    else
-        for (n, t) in zip(q.bucket, trans)
-
-            tr_cache_tmp[hash((q.pair, n.get(n.el)))] = t
-            n.set(n.el, t)
-            # end
-        end
+    _check_batched_translation(q, query, trans)
+    for (el, t) in zip(q.bucket, trans)
+        _set_el(q, el, t)
+        # end
     end
     empty!(q.bucket)
     q.sz[] = 0
 end
 
 
-function _set_from_cache(pair, node)
-    txt = node.get(node.el)
+function _set_from_cache(pair, el)
+    txt = get_text(el)
     k = hash((pair, txt))
     len = length(txt)
     if k ∈ tr_cache_dict
-        node.set(node.el, tr_cache_dict[k])
+        set_text(el, tr_cache_dict[k])
         (true, len)
     elseif k ∈ tr_cache_tmp
-        node.set(node.el, tr_cache_tmp[k])
+        set_text(el, tr_cache_tmp[k])
         (true, len)
     else
         (false, len)
     end
 end
 
-function _set_from_db(pair, node)
-    txt = node.get(node.el)
-    k = hash((pair, txt))
+function _set_from_db(pair, el)
+    txt = get_text(el)
+    k = hash((pair.src, pair.trg, txt))
     len = length(txt)
     if haskey(tr_cache_tmp, k)
-        node.set(node.el, tr_cache_tmp[k])
+        set_text(el, tr_cache_tmp[k])
         (true, len)
     else
         bk = bytes(k)
-        if in(bk, db.db)
-            node.set(node.el, db.db[bk])
+        if bk ∈ db.db
+            set_text(el, view(db.db, bk))
             (true, len)
         else
             (false, len)
@@ -116,35 +108,40 @@ function _set_from_db(pair, node)
     end
 end
 
-function translate!(q::Queue, node::Node, ::Val...)
-    let (success, len) = _set_from_db(q.pair, node)
+function translate!(q::GlueQueue, el::HTMLNode, srv::Val, ::Any...)
+    let (success, len) = _set_from_db(q.pair, el)
         if !success
-            if q.sz[] + len > q.buffer && length(q.bucket) > 0
-                push!(q.bucket, node)
-                _update_elements(q)
-                save_to_db()
+            # translate nodes that exceede bufsize singularly
+            if len > q.bufsize
+                _update_el!(q, el, srv)
             else
+                if q.sz[] + len > q.bufsize
+                    # @assert length(q.bucket) > 0
+                    _update_elements!(q)
+                    save_to_db()
+                end
+                push!(q.bucket, el)
                 q.sz[] += len
-                push!(q.bucket, node)
             end
         end
     end
 end
 
-function translate!(q::Queue, finish::Bool)
+function translate!(q::GlueQueue, ::Val=Val(nothing); finish::Bool)
     if finish && q.sz[] > 0
-        _update_elements(q)
+        _update_elements!(q)
     end
 end
 
-function translate!(q::Queue, node::Node, finish::Bool)
+@doc "force translation, ignoring bufsize"
+function translate!(q::Queue, el::HTMLNode, ::Val=Val(nothing); finish::Bool)
     if finish
-        let (success, len) = _set_from_db(q.pair, node)
+        let (success, _) = _set_from_db(q.pair, el)
             if !success
-                let txt = node.get(node.el),
+                let txt = get_text(el),
                     t = q.translate(txt)
-                    @show t
-                    node.set(node.el, t)
+                    # @show t
+                    set_text(el, t)
                     tr_cache_tmp[hash((q.pair, txt))] = t
                 end
             end
@@ -152,6 +149,15 @@ function translate!(q::Queue, node::Node, finish::Bool)
     end
 end
 
-function translate!(q, node, ::Val{:argos})
-    translate!(a, node, true)
+abstract type HTMLElementAttr end
+
+get_text(el::HTMLText) = el.text
+set_text(el::HTMLText, val) = el.text = val
+
+get_text(el::HTMLElement) = if haskey(el.attributes, "alt")
+    el.attributes["alt"] else
+    el.attributes["title"]
 end
+set_text(el::HTMLElement, val) = el.attributes[
+    haskey(el.attributes, "alt") ? "alt" : "title"
+] = val

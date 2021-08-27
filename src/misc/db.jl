@@ -1,6 +1,8 @@
 using LevelDB
+using LevelDB: DB, @check_err_ref, leveldb_get, Csize_t
 using StringViews
 using BitConverter: bytes, to_int, to_big
+import Base.convert, Base.setindex!
 
 const tr_db_path = "translations.db"
 const empty_vec = Vector{UInt8}()
@@ -10,64 +12,82 @@ end
 const db = TDB(nothing)
 
 
-Base.setindex!(db::LevelDB.DB, v::String, k::String...) = db[k] = v
-Base.setindex!(db::LevelDB.DB, v::String, k::Int...) = db[k] = v
-Base.convert(::Type{<:Int}, v::Vector{UInt8}) = to_int(v)
-Base.convert(::Type{<:UInt}, v::Vector{UInt8}) = UInt(to_big(v))
+setindex!(db::LevelDB.DB, v::String, k::String...) = db[k] = v
+setindex!(db::LevelDB.DB, v::String, k::Int...) = db[k] = v
+convert(::Type{<:Int}, v::Vector{UInt8}) = to_int(v)
+convert(::Type{<:UInt}, v::Vector{UInt8}) = UInt(to_big(v))
+convert(::Type{UInt64}, v::Vector{UInt8}) = UInt(to_big(v))
 
 function Base.length(db::LevelDB.DB)
-    length(keys(db))
+    length([k for k in keys(db)])
 end
 
-function Base.in(k::UInt64, db::LevelDB.DB)
-	in(bytes(k), db)
+function Base.in(k::AbstractString, db::LevelDB.DB)
+    Vector{UInt8}(k) ∈ db
+end
+
+function Base.in(k::Number, db::LevelDB.DB)
+    bytes(k) ∈ db
+end
+
+function Base.in(k::Vector{UInt8}, db::LevelDB.DB)
+    val_size = Ref{Csize_t}(0)
+    @check_err_ref leveldb_get(db.handle, db.read_options,
+                               pointer(k), length(k),
+                               val_size, err_ref)
+    size = val_size[]
+    size != 0
 end
 
 function Base.size(db::LevelDB.DB)
     sum([length(v) for v in values(db, Vector{UInt8})])
 end
 
-function Base.setindex!(db::LevelDB.DB, v::String, k::String)
+function setindex!(db::LevelDB.DB, v::String, k::String)
     db[Vector{UInt8}(k)] = Vector{UInt8}(v)
 end
 
-function Base.getindex(db::LevelDB.DB, k::String, T::Type = StringView)
+function Base.getindex(db::LevelDB.DB, k::String)
     StringView(db[Vector{UInt8}(k)])
 end
 
-function Base.setindex!(db::LevelDB.DB, v::String, k::AbstractSet{Int})
+function Base.view(db::LevelDB.DB, k::Vector{UInt8})
+    StringView(db[k])
+end
+
+function setindex!(db::LevelDB.DB, v::String, k::AbstractSet{Int})
     let av = Vector{UInt8}(v)
         db[[bytes(ki) for ki in k]] = [av for _ in 1:length(k)]
     end
 end
 
-function Base.setindex!(db::LevelDB.DB, v::Any, k::AbstractSet)
+function setindex!(db::LevelDB.DB, v::Any, k::AbstractSet)
     db[[bytes(ki) for ki in k]] = [Vector{UInt8}(vi) for vi in v]
 end
 
-function Base.setindex!(db::LevelDB.DB, v::String, k::Vector{String})
+function setindex!(db::LevelDB.DB, v::String, k::Vector{String})
     let av = Vector{UInt8}(v)
         db[[Vector{UInt8}(ki) for ki in k]] = [av for _ in 1:length(k)]
     end
 end
 
-function Base.setindex!(db::LevelDB.DB, v::Vector{UInt8}, k::Vector{Vector{UInt8}})
+function setindex!(db::LevelDB.DB, v::Vector{UInt8}, k::Vector{Vector{UInt8}})
     db[k] = [Vector{UInt8}(v) for _ in 1:length(k)]
 end
 
-function Base.keys(db::LevelDB.DB, T::Type=StringView)
+function Base.keys(db::LevelDB.DB, T::Union{Type, Function}=StringView)
     if applicable(convert, T, empty_vec)
-        [convert(T, i[1]) for i in db if typeof(i) !== LevelDB.Iterator]
+        (convert(T, i[1]) for i in db if typeof(i) !== LevelDB.Iterator)
     else
-        [T(i[1]) for i in db if typeof(i) !== LevelDB.Iterator]
+        (T(i[1]) for i in db if typeof(i) !== LevelDB.Iterator)
     end
 end
 
 function Base.values(db::LevelDB.DB, T::Type=StringView)
     if applicable(convert, T, empty_vec)
-        [convert(T, t[2]) for t in db if typeof(t) !== LevelDB.Iterator]
+        (convert(T, t[2]) for t in db if typeof(t) !== LevelDB.Iterator)
     else
-        [T(t[2]) for t in db if typeof(t) !== LevelDB.Iterator]
+        (T(t[2]) for t in db if typeof(t) !== LevelDB.Iterator)
     end
 end
 
