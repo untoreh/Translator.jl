@@ -11,9 +11,7 @@ mutable struct TDB
 end
 const db = TDB(nothing)
 
-
-setindex!(db::LevelDB.DB, v::String, k::String...) = db[k] = v
-setindex!(db::LevelDB.DB, v::String, k::Int...) = db[k] = v
+setindex!(db::LevelDB.DB, v::String, k::Int) = db[k] = v
 convert(::Type{<:Int}, v::Vector{UInt8}) = to_int(v)
 convert(::Type{<:UInt}, v::Vector{UInt8}) = UInt(to_big(v))
 convert(::Type{UInt64}, v::Vector{UInt8}) = UInt(to_big(v))
