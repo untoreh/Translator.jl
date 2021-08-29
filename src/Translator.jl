@@ -39,6 +39,17 @@ function init(srv = :deep)
     @debug "Initialized $srv service"
 end
 
+function link_src_to_dir(dir)
+    let link_path = joinpath(dir, SLang.code)
+        if ispath(link_path) && !islink(SLang.code)
+                @warn "removing non link path: $link_path"
+                rm(link_path)
+        end
+        symlink("./index.html", link_path)
+        @debug "symlinked $dir to $link_path"
+    end
+end
+
 @enum traverse_method trav_files=1 trav_langs=2
 
 function translate_dir(path; service=:deep, method::traverse_method=files)
@@ -60,6 +71,7 @@ function translate_dir(path; service=:deep, method::traverse_method=files)
     ## translator instances
     TR = init_translator(srv)
     langpairs = [(src=SLang.code, trg=lang.code) for lang in TLangs]
+    link_src_to_dir(path)
 
     if method == trav_files
         _file_wise(path; exclusions, rx_file, langpairs, TR)
@@ -162,9 +174,7 @@ function translate_html(data, file_path, url_path, pair::LangPair, TR::Translato
         q = get_tfun(pair, TR) |> f -> get_queue(f, pair, TR)
     end
 
-    skip_children = false
-    last_skip = Nothing
-    last_children = Nothing
+    skip_children = 0
     # If using :argos translation service, don't use bulk translation.
     # Use PreOrder to ensure we know if some text belong to a <script> tag.
     # Prefetch the elements (collect) since we are going to modify the tree inplace,
@@ -175,23 +185,15 @@ function translate_html(data, file_path, url_path, pair::LangPair, TR::Translato
         if tp ∈ tform_els
             tforms[tp](el, file_path, url_path, pair)
         end
-        # skip unwanted nodes and their children
-        if tp ∈ skip_nodes || in_skip_class(tp, el)
-            last_skip = tp
-            skip_children = true
+        # check first if we are skipping children of a previous skipped node
+        if skip_children > 0
+            skip_children += - 1 + (hasfield(tp, :children) ? length(el.children) : 0)
             continue
-        elseif skip_children
-            let tpp = typeof(el.parent)
-                if tpp === last_skip ||
-                    tpp === last_children
-                    last_children = tp
-                    continue
-                else
-                    skip_children = false
-                end
-            end
+        # skip unwanted nodes and their children
+        elseif tp ∈ skip_nodes || in_skip_class(tp, el)
+            skip_children = length(el.children)
+            continue
         end
-
         if tp === HTMLText
             # don't query invalid text for translation
             if istranslatable(el.text)
