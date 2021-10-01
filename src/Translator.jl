@@ -45,7 +45,7 @@ function link_src_to_dir(dir)
                 @warn "removing non link path: $link_path"
                 rm(link_path)
         end
-        symlink("./index.html", link_path)
+        symlink("./", link_path)
         @debug "symlinked $dir to $link_path"
     end
 end
@@ -265,7 +265,10 @@ function parse_file(file, rx, pair::LangPair, TR::TranslatorService, q::Union{Qu
     end
 end
 
-# exportall()
-# @exportAll()
+@doc "Code loading helper function for translating a franklin project"
+function load_franklin()
+    include(joinpath(dirname(@__FILE__), "misc/franklin.jl"))
+    FranklinLangs
+end
 
 end

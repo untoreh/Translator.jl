@@ -8,7 +8,7 @@ const included_translate_dirs = Set(("posts", "tag", "reads", "_rss"))
 const excluded_translate_dirs = Set{Union{Symbol, String}}()
 const included_translate_exts = Set((".md", ".html"))
 const skip_nodes = Set(
-    HTMLElement{sym} for sym in [:link, :code, :style, :script, :address, :applet, :audio, :canvas, :embed, :time, :video]
+    HTMLElement{sym} for sym in [:code, :style, :script, :address, :applet, :audio, :canvas, :embed, :time, :video]
         )
 const skip_class = Set(("menu-lang-btn", ))
 # Every element is a function that applies modifications

@@ -97,6 +97,7 @@ function load_db(path=tr_db_path)
         db.db = LevelDB.DB(path; create_if_missing = true, error_if_exists = false)
         atexit( () -> close(db.db) )
     end
+    db.db
 end
 
 function save_to_db(db::LevelDB.DB=db.db; force=false, nojson=false)
@@ -107,4 +108,16 @@ function save_to_db(db::LevelDB.DB=db.db; force=false, nojson=false)
         end
         db[keys(tr_cache_tmp)] = values(tr_cache_tmp)
     end
+end
+
+function reset_db()
+	empty!(tr_cache_tmp)
+    close(db.db)
+    db.db = nothing
+    load_db()
+end
+
+function clear_db()
+    empty!(db.db)
+    empty!(tr_cache_tmp)
 end

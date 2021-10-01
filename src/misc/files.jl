@@ -7,8 +7,8 @@ catch
 end
 
 @resumable function walkfiles(root; exts=Set((".md", ".html")),
-                              ex_dirs::Set{String}=Set(),
-                              dirs::Union{Set{String},Nothing}=nothing,
+                              ex_dirs::AbstractSet=Set(),
+                              dirs::Union{AbstractSet,Nothing}=nothing,
                               subdir=false)
     """
 iterate over files in a directory, recursively and selectively by extension name and dir name
