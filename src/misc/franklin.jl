@@ -7,6 +7,7 @@ using Gumbo
 using Memoization
 using LDJ.LDJFranklin: ldj_trans
 using FranklinContent: canonical_url, post_link
+using FranklinContent.Franklin: globvar, locvar, pagevar
 using Translator: convert
 
 export hfun_langs_list, get_languages, translate_website

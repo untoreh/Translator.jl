@@ -266,9 +266,9 @@ function parse_file(file, rx, pair::LangPair, TR::TranslatorService, q::Union{Qu
 end
 
 @doc "Code loading helper function for translating a franklin project"
-function load_franklin()
+function franklinlangs()
     include(joinpath(dirname(@__FILE__), "misc/franklin.jl"))
-    FranklinLangs
+    @eval export FranklinLangs
 end
 
 end
