@@ -5,12 +5,17 @@ using .cssFlags: lang_to_country
 
 using Gumbo
 using Memoization
+using Translator
+using AbstractTrees: PreOrderDFS
+using Franklin; const fr = Franklin
 using LDJ.LDJFranklin: ldj_trans
 using FranklinContent: canonical_url, post_link
-using FranklinContent.Franklin: globvar, locvar, pagevar
-using Translator: convert
+using FranklinContent.Franklin: globvar, locvar, pagevar, path
+using Translator: SLang
+using URIs: URI
+using Gumbo: HTMLElement, hasattr, setattr!, getattr
 
-export hfun_langs_list, get_languages, translate_website
+export hfun_langs_list, get_languages, translate_website, sitemap_add_translations
 
 @doc "Return the list of translated languages and the source language code."
 @memoize function get_languages()
@@ -42,7 +47,8 @@ end
 @doc "Example callback for the translator to perform additional modifications
 to the html file being processed."
 function add_ld_data(el, file_path, url_path, pair)
-    src_url = canonical_url()
+    rpath = fr.get_rpath(joinpath(file_path, url_path))
+    src_url = canonical_url(rpath)
     trg_url = post_link(url_path, pair.trg)
 
     # generates an ldj WebPage entity mentioning that the page
@@ -56,7 +62,7 @@ function add_ld_data(el, file_path, url_path, pair)
         if el isa HTMLElement{:link} &&
             hasattr(el, "rel") &&
             getattr(el, "rel") === "canonical"
-            setattr!(el, "href", canonical_url(;code=pair.trg))
+            setattr!(el, "href", canonical_url(rpath;code=pair.trg))
             break
         end
     end
@@ -91,18 +97,63 @@ function config_translator()
 end
 
 @doc "Recurses over a franklin processed site directory generating translated subdirectories."
-function translate_website(;dir=joinpath(@__DIR__, "__site/"), method=Translator.trav_langs)
-    if isnothing(Translator.SLang.code)
+function translate_website(;dir=fr.path(:site), method=trav_langs)
+    @assert !isnothing(dir)
+    if isnothing(SLang.code)
         config_translator()
     end
     try
-        Translator.translate_dir(dir;method)
+        translate_dir(dir;method)
     catch e
         if e isa InterruptException
             display("Interrupted")
         else
             rethrow(e)
         end
+    end
+end
+
+link_tag = Symbol(:(xhtml:link))
+function make_lang_link(code, url)
+    el = HTMLElement(link_tag)
+    setattr!(el, "rel", "alternate")
+    setattr!(el, "hreflang", code)
+    setattr!(el, "href", url)
+    el
+end
+
+@doc "Include translated links to the urls in the sitemap."
+function sitemap_add_translations()
+    sitemap_path = joinpath(path(:site), "sitemap.xml")
+    sitemap = begin
+        sm = read(sitemap_path, String) |> parsehtml
+        sm.root |> PreOrderDFS |> collect
+    end
+    urls = begin
+        @assert sitemap[4] isa HTMLElement{:urlset}
+        collect(e for e in sitemap[5:end] if e isa HTMLElement{:url})
+    end
+    for u in urls
+        loc = u[1]
+        @assert loc isa HTMLElement{:loc}
+        url_el = loc[1]
+        url = URI(url_el.text)
+        # add all translated langs to the url list
+        target_langs, source_lang_code = get_languages()
+        for (_, code) in target_langs
+            code === source_lang_code && continue
+            el = make_lang_link(code, string(URI(url; path=("/" * code * url.path))))
+            push!(u, el)
+        end
+    end
+    urlset = sm.root[2][1]
+    @assert urlset isa HTMLElement{:urlset}
+    open(sitemap_path, "w") do sf
+        write(sf, """
+        <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+        """)
+        write(sf, string(urlset))
+        write(sf, "</urlset>")
     end
 end
 
