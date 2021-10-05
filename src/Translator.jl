@@ -57,7 +57,7 @@ function translate_dir(path; service=:deep, method::traverse_method=files)
     srv_sym = Symbol(service)
     srv = Val(srv_sym)
     @assert srv_sym ∈ REG_SERVICES "Specified service $srv_sym not supported"
-    dir = dirname(path)
+    dir = isdirpath(path) ? dirname(path) : path
     @assert !isnothing(SLang.code) "Source language not set"
     rx_file = Regex("(.*$(dir)/)(.*\$)")
     # exclude language code denominated directories
@@ -67,7 +67,6 @@ function translate_dir(path; service=:deep, method::traverse_method=files)
     else
         exclusions = excluded_translate_dirs
     end
-
     ## translator instances
     TR = init_translator(srv)
     langpairs = [(src=SLang.code, trg=lang.code) for lang in TLangs]
@@ -244,7 +243,7 @@ function translate_file(file, rx, langpairs::Vector{LangPair}, TR::TranslatorSer
     end
 end
 
-@memoize function split_file_path(rx, file)
+function split_file_path(rx, file)
     m = match(rx, file)
     (String(m[1]), String(m[2]))
 end
