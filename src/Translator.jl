@@ -18,7 +18,7 @@ include("misc/cache.jl")
 include("misc/db.jl")
 include("services/load.jl")
 
-@doc """setup chosen service and instantiate it.
+@doc """Setup chosen service and instantiate it.
 srv [ :pytrans, :gtrans, :deep, :pytranslators ]
 """
 function init(srv = :deep)
@@ -130,7 +130,7 @@ function _file_wise(path; exclusions, rx_file, langpairs, TR)
     end
 end
 
-@doc """ check that a given string is translatable """
+@doc """Check that a given string is translatable."""
 const punct_rgx = r"^([[:punct:]]|\s)+$"
 
 function istranslatable(str::AbstractString)
@@ -140,7 +140,7 @@ function istranslatable(str::AbstractString)
         !(isjson(tobytes(str))[1])         # skip json strings
 end
 
-@doc "rewrite urls that match a particular hostname, prepending target lang to url path"
+@doc "Rewrite urls that match a particular hostname, prepending target lang to url path."
 function rewrite_url(el, rewrite_path, hostname)
     let u = URI(getattr(el, "href"))
         if (isempty(u.host) || hostname === u.host) &&
@@ -153,14 +153,14 @@ function rewrite_url(el, rewrite_path, hostname)
     end
 end
 
-@doc """ check that a link doesn't have classes belonging to skip_class """
+@doc """Check that a link doesn't have classes belonging to skip_class."""
 function in_skip_class(tp, el)
     hasfield(tp, :attributes) &&
         haskey(el.attributes, "class") &&
         any(occursin(c, el.attributes["class"]) for c in skip_class)
 end
 
-@doc """traverses a Gumbo HTMLDoc structure translating text nodes and "alt" attributes """
+@doc """Traverses a Gumbo HTMLDoc structure translating text nodes and "alt" attributes."""
 function translate_html(data, file_path, url_path, pair::LangPair, TR::TranslatorService;
                         q::Union{Nothing, Queue}=nothing, hostname=hostname, finish=true)
 
@@ -174,6 +174,10 @@ function translate_html(data, file_path, url_path, pair::LangPair, TR::Translato
     end
 
     skip_children = 0
+
+    # Set the target lang attribute at the top level
+    setattr!(out_tree.root, "lang", pair.trg)
+
     # If using :argos translation service, don't use bulk translation.
     # Use PreOrder to ensure we know if some text belong to a <script> tag.
     # Prefetch the elements (collect) since we are going to modify the tree inplace,
