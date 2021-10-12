@@ -115,15 +115,25 @@ end
 
 link_tag = Symbol(:(xhtml:link))
 function make_lang_link(code, url)
+    href = string(URI(url; path=("/" * code * url.path)))
     el = HTMLElement(link_tag)
     setattr!(el, "rel", "alternate")
     setattr!(el, "hreflang", code)
-    setattr!(el, "href", url)
+    setattr!(el, "href", href)
+    el
+end
+
+function make_amp_link(code, url)
+    href = string(URI(url; path=("/" * code * "/amp" * url.path)))
+    el = HTMLElement(link_tag)
+    setattr!(el, "rel", "amphtml")
+    setattr!(el, "hreflang", code)
+    setattr!(el, "href", href)
     el
 end
 
 @doc "Include translated links to the urls in the sitemap."
-function sitemap_add_translations()
+function sitemap_add_translations(;amp=false)
     sitemap_path = joinpath(path(:site), "sitemap.xml")
     sitemap = begin
         sm = read(sitemap_path, String) |> parsehtml
@@ -142,18 +152,20 @@ function sitemap_add_translations()
         target_langs, source_lang_code = get_languages()
         for (_, code) in target_langs
             code === source_lang_code && continue
-            el = make_lang_link(code, string(URI(url; path=("/" * code * url.path))))
+            el = make_lang_link(code, url)
+            push!(u, el)
+            el = make_amp_link(code, url)
             push!(u, el)
         end
     end
     urlset = sm.root[2][1]
     @assert urlset isa HTMLElement{:urlset}
+    setattr!(urlset, "xmlns:xhtml", "http://www.w3.org/1999/xhtml")
     open(sitemap_path, "w") do sf
         write(sf, """
         <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
         """)
         write(sf, string(urlset))
-        write(sf, "</urlset>")
     end
 end
 
