@@ -124,7 +124,7 @@ function make_lang_link(code, url)
 end
 
 function make_amp_link(code, url)
-    href = string(URI(url; path=("/" * code * "/amp" * url.path)))
+    href = string(URI(url; path=("/amp/" * code * url.path)))
     el = HTMLElement(link_tag)
     setattr!(el, "rel", "amphtml")
     setattr!(el, "hreflang", code)
