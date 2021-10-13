@@ -58,12 +58,21 @@ function add_ld_data(el, file_path, url_path, pair)
         x -> push!(el, x)
 
     # find canonical link and apply translation
-    for el in el.children
-        if el isa HTMLElement{:link} &&
-            hasattr(el, "rel") &&
-            getattr(el, "rel") === "canonical"
-            setattr!(el, "href", canonical_url(rpath;code=pair.trg))
-            break
+    canonical = false
+    amphtml = false
+    for e in el.children
+        if e isa HTMLElement{:link} &&
+            hasattr(e, "rel")
+            let rel = getattr(e, "rel")
+                if rel === "canonical"
+                    setattr!(e, "href", canonical_url(rpath;code=pair.trg))
+                    canonical = true
+                elseif rel === "amphtml"
+                    setattr!(e, "href", canonical_url(rpath;code=pair.trg, amp=true))
+                    amphtml = true
+                end
+                canonical && amphtml && break
+            end
         end
     end
 end
