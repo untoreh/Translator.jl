@@ -48,6 +48,7 @@ end
 to the html file being processed."
 function add_ld_data(el, file_path, url_path, pair)
     rpath = fr.get_rpath(joinpath(file_path, url_path))
+    rpath = replace(rpath, r"__site/" => "")
     src_url = canonical_url(rpath)
     trg_url = post_link(url_path, pair.trg)
 
