@@ -5,6 +5,7 @@ module Translator
 export translate_dir, translate_file, translate_html, setlangs!, sethostname!, trav_files, trav_langs
 
 using Memoization
+using Memoization: empty_cache!
 using HTTP: isjson
 using URIs: URI
 using Gumbo
@@ -52,7 +53,7 @@ end
 
 @enum traverse_method trav_files=1 trav_langs=2
 
-function translate_dir(path; service=:deep, method::traverse_method=files)
+function translate_dir(path; service=:deep, method::traverse_method=files, clear=true)
     @assert isdir(path) "Path $path is not a valid directory"
     srv_sym = Symbol(service)
     srv = Val(srv_sym)
@@ -72,6 +73,7 @@ function translate_dir(path; service=:deep, method::traverse_method=files)
     langpairs = [(src=SLang.code, trg=lang.code) for lang in TLangs]
     link_src_to_dir(path)
 
+    clear && empty_cache!(parse_html)
     if method == trav_files
         _file_wise(path; exclusions, rx_file, langpairs, TR)
     elseif method == trav_langs
@@ -144,7 +146,7 @@ end
 function rewrite_url(el, rewrite_path, hostname)
     let u = URI(getattr(el, "href"))
         if (isempty(u.host) || hostname === u.host) &&
-            startswith(u.path, "/") # don't rewrite local #id links
+            startswith(u.path, r"\.?\.?/") # don't rewrite local #id links
 
             join([rewrite_path, u.path]) |>
                 x -> URI(u; path=x) |> string |>
