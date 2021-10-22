@@ -144,11 +144,12 @@ end
 
 @doc "Rewrite urls that match a particular hostname, prepending target lang to url path."
 function rewrite_url(el, rewrite_path, hostname)
-    let u = URI(getattr(el, "href"))
+    let u = URI(getattr(el, "href")),
+        # remove initial dots from links
+        p = replace(u.path, r"\.?\.?" => "")
         if (isempty(u.host) || hostname === u.host) &&
-            startswith(u.path, r"\.?\.?/") # don't rewrite local #id links
-
-            join([rewrite_path, u.path]) |>
+            startswith(p, "/") # don't rewrite local #id links
+            join([rewrite_path, p]) |>
                 x -> URI(u; path=x) |> string |>
                 x -> setattr!(el, "href", x)
         end

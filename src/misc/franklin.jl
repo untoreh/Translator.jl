@@ -27,12 +27,12 @@ end
 @doc "Generates an html dropdown language list (no css)."
 function hfun_langs_list(usesvg=false)
     c = IOBuffer()
-    write(c, "<ul id=\"lang-list\">")
+    write(c, "<ul class=\"lang-list\">")
     css_classes = usesvg ? "flag-icon flag-icon-" : "flag flag-"
     (tlangs, slang_code) = get_languages()
     for (lang, code) in tlangs
         # redirect source lang to default
-        write(c, "<a class=\"lang-link\" id=\"lang-", code, "\" href=\"",
+        write(c, "<a class=\"lang-link lang-", code, "\" href=\"",
               post_link(locvar(:fd_rpath; default=""),
                         code === slang_code ? "" : code), "\">",
               "<span class=\"", css_classes, ltc(code), "\"></span>",
@@ -107,7 +107,8 @@ function config_translator()
 end
 
 @doc "Recurses over a franklin processed site directory generating translated subdirectories."
-function translate_website(;dir=fr.path(:site), method=trav_langs)
+function translate_website(;dir=nothing, method=trav_langs)
+    isnothing(dir) && (dir = fr.path(:site))
     @assert !isnothing(dir)
     if isnothing(SLang.code)
         config_translator()
@@ -144,7 +145,7 @@ end
 
 @doc "Include translated links to the urls in the sitemap."
 function sitemap_add_translations(;amp=false)
-    sitemap_path = joinpath(path(:site), "sitemap.xml")
+    sitemap_path = joinpath(fr.path(:site), "sitemap.xml")
     sitemap = begin
         sm = read(sitemap_path, String) |> parsehtml
         sm.root |> PreOrderDFS |> collect
