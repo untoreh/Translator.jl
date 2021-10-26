@@ -33,7 +33,7 @@ abstract type Queue end
     sz = Ref{Int}(0)
     bucket::Vector = []
     glue = " \n[[...]]\n "
-    splitGlue = r"\s?\n?\[\[\.\.\.\]\]\n?"
+    splitGlue = r"\s?\n?\[\[?\.\.\.\]\]?\n?"
     bufsize = 1600
     translate::Function
     pair::LangPair
