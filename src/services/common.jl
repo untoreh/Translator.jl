@@ -47,7 +47,16 @@ macro typesderef(expr)
               df = splitdef(expr)
               t_args = Vector{Expr}()
               df[:args] = replace_args(df[:args])
+              # slurping only at the end allow on julia 1.7
               df[:kwargs] = replace_args(df[:kwargs])
+              ed = length(df[:kwargs]) > 0 ? df[:kwargs][end] : nothing
+              if ed isa Expr && @capture(ed, a_::T_...)
+                  # Slurping shouldn't have type hints
+                  # and apparently even if there aren't
+                  # an `Any` type gets added automatically
+                  # which should be ignored
+                  df[:kwargs][end] = :($a...)
+              end
               combinedef(df)
           end)
     end
