@@ -161,3 +161,11 @@ end
 set_text(el::HTMLElement, val) = el.attributes[
     haskey(el.attributes, "alt") ? "alt" : "title"
 ] = val
+
+const RTL_LANGS = Set(["yi",
+                       "he",
+                       "ar",
+                       "fa",
+                       "ur",
+                       "az",
+                       "dv",])

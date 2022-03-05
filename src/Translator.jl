@@ -180,6 +180,10 @@ function translate_html(data, file_path, url_path, pair::LangPair, TR::Translato
 
     # Set the target lang attribute at the top level
     setattr!(out_tree.root, "lang", pair.trg)
+    # and the RTL tag
+    if pair.trg ∈ RTL_LANGS
+        setattr!(out_tree.root, "dir", "rtl")
+    end
 
     # If using :argos translation service, don't use bulk translation.
     # Use PreOrder to ensure we know if some text belong to a <script> tag.
