@@ -15,7 +15,7 @@ using Translator: SLang
 using URIs: URI
 using Gumbo: HTMLElement, hasattr, setattr!, getattr
 
-export hfun_langs_list, get_languages, translate_website, sitemap_add_translations
+export hfun_langs_list, hfun_lang_links_html, get_languages, translate_website, sitemap_add_translations
 
 @doc "Return the list of translated languages and the source language code."
 @memoize function get_languages()
@@ -76,6 +76,13 @@ function add_ld_data(el, file_path, url_path, pair)
             end
         end
     end
+    src_url, trg_url
+end
+
+function hfun_lang_links_html()
+    src_url = replace(locvar(:fd_rpath), r"__site/" => "") |> canonical_url
+    set_lang_links!(src_url)
+    join(string.(lang_links))
 end
 
 function set_transforms()
@@ -86,7 +93,7 @@ function set_transforms()
 end
 
 @doc "Example configuration function to define the translator lang and callbacks."
-function config_translator()
+function config_translator(blog_dirs)
     # process franklin config; see `serve` function
     prepath = get(fr.GLOBAL_VARS, "prepath", nothing)
     fr.def_GLOBAL_VARS!()
@@ -103,15 +110,16 @@ function config_translator()
     set_transforms()
     # files
     push!(Translator.excluded_translate_dirs, :langs)
+    push!(Translator.included_translate_dirs, blog_dirs...)
     Translator.load_db()
 end
 
 @doc "Recurses over a franklin processed site directory generating translated subdirectories."
-function translate_website(;dir=nothing, method=trav_langs)
+function translate_website(;dir=nothing, method=trav_langs, blog_dirs=Set())
     isnothing(dir) && (dir = fr.path(:site))
     @assert !isnothing(dir)
-    if isnothing(SLang.code)
-        config_translator()
+    if isnothing(Translator.db.db)
+        config_translator(blog_dirs)
     end
     try
         translate_dir(dir;method)
@@ -124,10 +132,14 @@ function translate_website(;dir=nothing, method=trav_langs)
     end
 end
 
-link_tag = Symbol(:(xhtml:link))
-function make_lang_link(code, url)
-    href = string(URI(url; path=("/" * code * url.path)))
-    el = HTMLElement(link_tag)
+@inline function lang_url(code, url::URI; prefix="/")
+    string(URI(url; path=(prefix * code * url.path)))
+end
+
+x_link_tag = Symbol(:(xhtml:link))
+function make_lang_link(code, url; tag=x_link_tag)
+    href = lang_url(code, url)
+    el = HTMLElement(tag)
     setattr!(el, "rel", "alternate")
     setattr!(el, "hreflang", code)
     setattr!(el, "href", href)
@@ -135,7 +147,7 @@ function make_lang_link(code, url)
 end
 
 function make_amp_link(code, url)
-    href = string(URI(url; path=("/amp/" * code * url.path)))
+    href = lang_url(code, url; prefix="/amp/")
     el = HTMLElement(link_tag)
     setattr!(el, "rel", "amphtml")
     setattr!(el, "hreflang", code)
@@ -178,6 +190,29 @@ function sitemap_add_translations(;amp=false)
         """)
         write(sf, string(urlset))
     end
+end
+
+const lang_links = Vector{typeof(HTMLElement(:link))}()
+
+function init_lang_links!()
+    global lang_links
+    if isempty(Translator.TLangs)
+        config_translator()
+    else
+        empty!(lang_links)
+    end
+    for lang in Translator.TLangs
+        push!(lang_links, make_lang_link(lang.code, URI("/"); tag=:link))
+    end
+end
+
+function set_lang_links!(url)
+    isempty(lang_links) && init_lang_links!()
+    for link in lang_links
+        code = getattr(link, "hreflang")
+        setattr!(link, "href", lang_url(code, URI(url)))
+    end
+    lang_links
 end
 
 end
