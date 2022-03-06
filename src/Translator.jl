@@ -33,8 +33,9 @@ function init(srv = :deep)
     end
     try
 	    init(Val(srv))
-    catch
-        ErrorException("service $srv not supported") |> throw
+    catch e
+        @error "Can't init $srv for translation"
+        rethrow(e)
     end
     INIT_SERVICES[srv] = true
     @debug "Initialized $srv service"
