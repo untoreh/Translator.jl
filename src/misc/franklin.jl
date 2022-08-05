@@ -199,7 +199,7 @@ const lang_links = Vector{typeof(HTMLElement(:link))}()
 function init_lang_links!()
     global lang_links
     if isempty(Translator.TLangs)
-        config_translator([])
+        config_translator(Set())
     else
         empty!(lang_links)
     end
