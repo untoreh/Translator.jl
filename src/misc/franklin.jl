@@ -110,7 +110,9 @@ function config_translator(blog_dirs)
     set_transforms()
     # files
     push!(Translator.excluded_translate_dirs, :langs)
-    push!(Translator.included_translate_dirs, blog_dirs...)
+    if length(blog_dirs) > 0
+        push!(Translator.included_translate_dirs, blog_dirs...)
+    end
     Translator.load_db()
 end
 
@@ -197,7 +199,7 @@ const lang_links = Vector{typeof(HTMLElement(:link))}()
 function init_lang_links!()
     global lang_links
     if isempty(Translator.TLangs)
-        config_translator()
+        config_translator([])
     else
         empty!(lang_links)
     end

@@ -238,17 +238,17 @@ function translate_file(file, rx, langpairs::Vector{LangPair}, TR::TranslatorSer
         @debug "translating $file"
         for pair in langpairs
             @debug "lang: $(pair.trg)"
-            let t_path = isnothing(t_path) ? joinpath(file_path, pair.trg, url_path) : t_path,
+            let t_path = isnothing(t_path) ?
+                joinpath(file_path, pair.trg, url_path) : joinpath(t_path, pair.trg, url_path),
                 d_path = dirname(t_path)
                 if !isdir(d_path)
                     mkpath(d_path)
                 end
                 @debug "writing to path $t_path"
+                translate_html(html, file_path, url_path, pair, TR)
                 open(t_path, "w") do io
-                    # @show "translating html"
                     translate_html(html, file_path, url_path, pair, TR) |>
                         q_out -> print(io, q_out[2])
-                    # @show "written"
                 end
             end
         end
